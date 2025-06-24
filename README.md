@@ -1,7 +1,7 @@
 # `encoding/xml` with namespace prefixes
 
-[![build status](https://img.shields.io/github/actions/workflow/status/nbio/xml/go.yaml?branch=main)](https://github.com/nbio/xml/actions)
-[![pkg.go.dev](https://img.shields.io/badge/docs-pkg.go.dev-blue.svg)](https://pkg.go.dev/github.com/nbio/xml)
+[![build status](https://img.shields.io/github/actions/workflow/status/samuel-jimenez/xml/go.yaml?branch=main)](https://github.com/samuel-jimenez/xml/actions)
+[![pkg.go.dev](https://img.shields.io/badge/docs-pkg.go.dev-blue.svg)](https://pkg.go.dev/github.com/samuel-jimenez/xml)
 
 This is a fork of the Go [encoding/xml](https://pkg.go.dev/encoding/xml) package that improves support for XML namespaces, kept in sync with [golang/go#48641](https://github.com/golang/go/pull/48641).
 
@@ -35,7 +35,7 @@ https://play.golang.org/p/-6Ee8tcLl2L
 ```go
 
 // Instead of "encoding/xml"
-import "github.com/nbio/xml"
+import "github.com/samuel-jimenez/xml"
 ```
 
 ## Notes
