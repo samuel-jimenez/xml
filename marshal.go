@@ -364,6 +364,26 @@ type printer struct {
 	err        error
 }
 
+// getNamespace finds the prefix to use for the given namespace URI, but does not create it.
+func (p *printer) getNamespace(prefix string) string {
+	switch prefix {
+	case xmlPrefix:
+		// The "http://www.w3.org/XML/1998/namespace" namespace is predefined as "xml"
+		// and must be referred to that way.
+		return xmlURL
+	case xmlnsPrefix:
+		// The "http://www.w3.org/2000/xmlns/" namespace is also predefined as "xmlns"
+		return xmlnsURL
+	}
+	for i := len(p.elements) - 1; i >= 0; i-- {
+		uri := p.elements[i].prefixToNS[prefix]
+		if uri != "" {
+			return uri
+		}
+	}
+	return ""
+}
+
 // getPrefix finds the prefix to use for the given namespace URI, but does not create it.
 func (p *printer) getPrefix(uri string) string {
 	switch uri {
@@ -372,8 +392,7 @@ func (p *printer) getPrefix(uri string) string {
 		// and must be referred to that way.
 		return xmlPrefix
 	case xmlnsURL:
-		// (The "http://www.w3.org/2000/xmlns/" namespace is also predefined as "xmlns",
-		// but users should not be trying to use that one directly - that's our job.)
+		// The "http://www.w3.org/2000/xmlns/" namespace is also predefined as "xmlns"
 		return xmlnsPrefix
 	}
 	for i := len(p.elements) - 1; i >= 0; i-- {
@@ -839,7 +858,7 @@ func (p *printer) writeStart(start *StartElement) error {
 		}
 		prefix, local := splitPrefixed(attr.Name.Local)
 		p.WriteByte(' ')
-		if attr.Name.Space == xmlnsURL {
+		if attr.Name.Space == xmlnsURL || prefix == xmlnsPrefix {
 			p.createPrefix(attr.Value, local)
 			p.WriteString(xmlnsPrefix)
 			p.WriteByte(':')
@@ -852,6 +871,12 @@ func (p *printer) writeStart(start *StartElement) error {
 			}
 			p.WriteString(prefix)
 			p.WriteByte(':')
+		} else if prefix != "" {
+			uri := p.getNamespace(prefix)
+			if uri != "" {
+				p.WriteString(prefix)
+				p.WriteByte(':')
+			}
 		}
 		p.WriteString(local)
 		p.WriteString(`="`)
