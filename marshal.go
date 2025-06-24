@@ -871,6 +871,12 @@ func (p *printer) writeStart(start *StartElement) error {
 			}
 			p.WriteString(prefix)
 			p.WriteByte(':')
+		} else if prefix != "" {
+			uri := p.getNamespace(prefix)
+			if uri != "" {
+				p.WriteString(prefix)
+				p.WriteByte(':')
+			}
 		}
 		p.WriteString(local)
 		p.WriteString(`="`)
