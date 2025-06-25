@@ -3,7 +3,10 @@
 [![build status](https://img.shields.io/github/actions/workflow/status/samuel-jimenez/xml/go.yaml?branch=main)](https://github.com/samuel-jimenez/xml/actions)
 [![pkg.go.dev](https://img.shields.io/badge/docs-pkg.go.dev-blue.svg)](https://pkg.go.dev/github.com/samuel-jimenez/xml)
 
-This is a fork of the Go [encoding/xml](https://pkg.go.dev/encoding/xml) package that improves support for XML namespaces, kept in sync with [golang/go#48641](https://github.com/golang/go/pull/48641).
+This package exists due to [underlying Golang implementation issues with XML namespaces](https://github.com/golang/go/issues/9519) and the [unwillingness to fix them](https://github.com/golang/go/issues/13400).
+
+
+This is a fork of the nbio's Go [encoding/xml](github.com/nbio/xml) package, which is a fork of the Go [encoding/xml](https://pkg.go.dev/encoding/xml) package that improves support for XML namespaces, kept in sync with [golang/go#48641](https://github.com/golang/go/pull/48641).
 
 It allows round-trip unmarshaling/marshaling with explicit namespace prefixes. For example, this can be unmarshalled and re-marshalled into this precise XML:
 
@@ -23,6 +26,11 @@ It allows round-trip unmarshaling/marshaling with explicit namespace prefixes. F
 For marshaling, a preferred namespace prefix can now be specified in a struct tag or `XMLName` value by prefixing the local name:
 
 `xml:"urn:ietf:params:xml:ns:domain-1.0 domain:check"`
+
+Additionally, elements may use already defined prefixes for ancestors' namespaces:
+
+`xml:"domain:name"`
+
 
 Name-spaced tag and attribute names are now strictly parsed and will fail with an error if any are malformed, such as having a leading or trailing colon, or more than 1 colon.
 
