@@ -56,6 +56,8 @@ const (
 //   - a field with tag ",comment" is written as an XML comment, not
 //     subject to the usual marshaling procedure. It must not contain
 //     the "--" string within it.
+//   - a field with tag ",group" is handled as if the fields of its
+//     value were part of the outer struct.
 //   - a field with a tag including the "omitempty" option is omitted
 //     if the field value is empty. The empty values are false, 0, any
 //     nil pointer or interface value, and any array, slice, map, or
@@ -612,8 +614,11 @@ func (p *printer) marshalValue(val reflect.Value, finfo *fieldInfo, startTemplat
 		start.Attr = append(start.Attr, Attr{Name{Space: "", Local: xmlnsPrefix}, ""})
 	}
 
-	if err := p.writeStart(&start); err != nil {
-		return err
+	// fGroup does not have an enclosing tag.
+	if finfo == nil || finfo.flags&fGroup == 0 {
+		if err := p.writeStart(&start); err != nil {
+			return err
+		}
 	}
 
 	if val.Kind() == reflect.Struct {
@@ -631,9 +636,11 @@ func (p *printer) marshalValue(val reflect.Value, finfo *fieldInfo, startTemplat
 	if err != nil {
 		return err
 	}
-
-	if err := p.writeEnd(start.Name); err != nil {
-		return err
+	// fGroup does not have an enclosing tag.
+	if finfo == nil || finfo.flags&fGroup == 0 {
+		if err := p.writeEnd(start.Name); err != nil {
+			return err
+		}
 	}
 
 	return p.cachedWriteError()

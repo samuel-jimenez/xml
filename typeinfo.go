@@ -38,6 +38,8 @@ const (
 	fComment
 	fAny
 
+	fGroup
+
 	fOmitEmpty
 
 	fMode = fElement | fAttr | fCDATA | fCharData | fInnerXML | fComment | fAny
@@ -138,6 +140,8 @@ func structFieldInfo(typ reflect.Type, f *reflect.StructField) (*fieldInfo, erro
 				finfo.flags |= fComment
 			case "any":
 				finfo.flags |= fAny
+			case "group":
+				finfo.flags |= fGroup
 			case "omitempty":
 				finfo.flags |= fOmitEmpty
 			}
