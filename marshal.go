@@ -585,24 +585,9 @@ func (p *printer) marshalValue(val reflect.Value, finfo *fieldInfo, startTemplat
 	}
 
 	// Attributes
-	for i := range tinfo.fields {
-		finfo := &tinfo.fields[i]
-		if finfo.flags&fAttr == 0 {
-			continue
-		}
-
-		fv := finfo.value(val, dontInitNilPointers)
-
-		if finfo.flags&fOmitEmpty != 0 && (!fv.IsValid() || isEmptyValue(fv)) {
-			continue
-		}
-
-		if fv.Kind() == reflect.Interface && fv.IsNil() {
-			continue
-		}
-
-		name := Name{Space: finfo.xmlns, Local: joinPrefixed(finfo.prefix, finfo.name)}
-		if err := p.marshalAttr(&start, name, fv); err != nil {
+	// fGroup does not have an enclosing tag.
+	if finfo == nil || finfo.flags&fGroup == 0 {
+		if err := p.collectAttr(val, tinfo, &start); err != nil {
 			return err
 		}
 	}
@@ -621,7 +606,7 @@ func (p *printer) marshalValue(val reflect.Value, finfo *fieldInfo, startTemplat
 		}
 	}
 
-	if val.Kind() == reflect.Struct {
+	if kind == reflect.Struct {
 		err = p.marshalStruct(tinfo, val)
 	} else {
 		s, b, err1 := p.marshalSimple(typ, val)
@@ -644,6 +629,59 @@ func (p *printer) marshalValue(val reflect.Value, finfo *fieldInfo, startTemplat
 	}
 
 	return p.cachedWriteError()
+}
+
+func (p *printer) collectAttr(val reflect.Value, tinfo *typeInfo, start *StartElement) error {
+
+	for i := range tinfo.fields {
+		finfo := &tinfo.fields[i]
+
+		if finfo.flags&fGroup != 0 {
+
+			fv := finfo.value(val, dontInitNilPointers)
+			tinfo, err := getTypeInfo(fv.Type())
+			if err != nil {
+				return err
+			}
+
+			// Drill into interfaces and pointers.
+			for fv.Kind() == reflect.Interface || fv.Kind() == reflect.Pointer {
+				if fv.IsNil() {
+					return nil
+				}
+				fv = fv.Elem()
+			}
+			kind := fv.Kind()
+			if kind != reflect.Struct {
+				continue
+			}
+			if err := p.collectAttr(fv, tinfo, start); err != nil {
+				return err
+			}
+		}
+
+		if finfo.flags&fAttr == 0 {
+			continue
+		}
+
+		fv := finfo.value(val, dontInitNilPointers)
+
+		if finfo.flags&fOmitEmpty != 0 && (!fv.IsValid() || isEmptyValue(fv)) {
+			continue
+		}
+
+		if fv.Kind() == reflect.Interface && fv.IsNil() {
+			continue
+		}
+
+		name := Name{Space: finfo.xmlns, Local: joinPrefixed(finfo.prefix, finfo.name)}
+
+		if err := p.marshalAttr(start, name, fv); err != nil {
+			return err
+		}
+	}
+	return nil
+
 }
 
 // marshalAttr marshals an attribute with the given name and value, adding to start.Attr.
