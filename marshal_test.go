@@ -560,6 +560,81 @@ type NamespacedNested struct {
 	Value   string   `xml:"urn:test:nested-1.0 nested:wrapper>nested:value"`
 }
 
+type MultiNamespaces struct {
+	XMLName struct{}            `xml:"a:multi"`
+	Attr    []Attr              `xml:",any,attr,omitempty"`
+	Value   MultiNamespaceChild `xml:"b:child"`
+}
+
+type MultiNamespaceChild struct {
+	Value string `xml:"c:prop"`
+}
+
+type GroupNode0 struct {
+	Attr  string `xml:"nodeattr0,attr,omitempty"`
+	Value string `xml:"value0"`
+}
+
+type GroupNode1 struct {
+	Attr  string `xml:"nodeattr1,attr,omitempty"`
+	Value string `xml:"value1"`
+}
+
+type GroupOuter struct {
+	XMLName  struct{}   `xml:"urn:test:group-1.0 group"`
+	Attr     string     `xml:"outer,attr,omitempty"`
+	Children GroupInner `xml:",group,any,omitempty"`
+}
+
+type GroupInner struct {
+	GroupNode0 GroupNode0 `xml:"node0,omitempty"`
+	GroupNode1 GroupNode1 `xml:"node1,omitempty"`
+}
+
+type GroupOuterPointer struct {
+	XMLName  struct{}          `xml:"urn:test:group-1.0 group"`
+	Attr     string            `xml:"outer,attr,omitempty"`
+	Children GroupInnerPointer `xml:",group,any,omitempty"`
+}
+
+type GroupInnerPointer struct {
+	GroupNode0 *GroupNode0 `xml:"node0,omitempty"`
+	GroupNode1 *GroupNode1 `xml:"node1,omitempty"`
+}
+
+type GroupOuterSlice struct {
+	XMLName  struct{}          `xml:"urn:test:group-1.0 group"`
+	Attr     string            `xml:"outer,attr,omitempty"`
+	Children []GroupInnerSlice `xml:",group,any,omitempty"`
+}
+
+type GroupInnerSlice struct {
+	GroupNode0 *GroupNode0 `xml:"node0,omitempty"`
+	GroupNode1 *GroupNode1 `xml:"node1,omitempty"`
+}
+
+type GroupOuterAttr struct {
+	XMLName struct{}       `xml:"urn:test:group-1.0 group"`
+	Attr    string         `xml:"outer,attr,omitempty"`
+	Group   GroupInnerAttr `xml:",group,any,omitempty"`
+}
+
+type GroupInnerAttr struct {
+	Attr       string     `xml:"inner,attr,omitempty"`
+	GroupNode0 GroupNode0 `xml:"node0,omitempty"`
+	GroupNode1 GroupNode1 `xml:"node1,omitempty"`
+}
+
+var (
+	NameSpaceA = Attr{Name: Name{Space: "http://www.w3.org/2000/xmlns/", Local: "a"}, Value: "urn:test:multi-1.0/a"}
+	NameSpaceB = Attr{Name: Name{Space: "http://www.w3.org/2000/xmlns/", Local: "b"}, Value: "urn:test:multi-1.0/b"}
+	NameSpaceC = Attr{Name: Name{Space: "http://www.w3.org/2000/xmlns/", Local: "c"}, Value: "urn:test:multi-1.0/c"}
+
+	NameSpacePrefixA = Attr{Name: Name{Local: "xmlns:a"}, Value: "urn:test:multi-1.0/a"}
+	NameSpacePrefixB = Attr{Name: Name{Local: "xmlns:b"}, Value: "urn:test:multi-1.0/b"}
+	NameSpacePrefixC = Attr{Name: Name{Local: "xmlns:c"}, Value: "urn:test:multi-1.0/c"}
+)
+
 var (
 	nameAttr     = "Sarah"
 	ageAttr      = uint(12)
@@ -579,6 +654,7 @@ var marshalTests = []struct {
 	UnmarshalOnly  bool
 	UnmarshalError string
 }{
+
 	// Test nil marshals to nothing
 	{Value: nil, ExpectXML: ``, MarshalOnly: true},
 	{Value: nilStruct, ExpectXML: ``, MarshalOnly: true},
@@ -1749,6 +1825,74 @@ var marshalTests = []struct {
 			XMLName struct{} `xml:"space:name"`
 			Value   string   `xml:"space:value"`
 		}{Value: "value"},
+	},
+
+	{
+		Value: &MultiNamespaces{
+			Attr: []Attr{NameSpaceA, NameSpaceB, NameSpaceC},
+			Value: MultiNamespaceChild{
+				Value: "unknown",
+			},
+		},
+		ExpectXML: `<a:multi xmlns:a="urn:test:multi-1.0/a" xmlns:b="urn:test:multi-1.0/b" xmlns:c="urn:test:multi-1.0/c"><b:child><c:prop>unknown</c:prop></b:child></a:multi>`,
+	},
+
+	{
+		Value: &MultiNamespaces{
+			Attr: []Attr{NameSpacePrefixA, NameSpacePrefixB, NameSpacePrefixC},
+			Value: MultiNamespaceChild{
+				Value: "unknown",
+			},
+		},
+		ExpectXML:   `<a:multi xmlns:a="urn:test:multi-1.0/a" xmlns:b="urn:test:multi-1.0/b" xmlns:c="urn:test:multi-1.0/c"><b:child><c:prop>unknown</c:prop></b:child></a:multi>`,
+		MarshalOnly: true,
+	},
+
+	{
+		Value: &GroupOuter{
+			Attr: "true",
+			Children: GroupInner{
+				GroupNode0: GroupNode0{Attr: "attr0", Value: "inner0"},
+
+				GroupNode1: GroupNode1{Attr: "attr1", Value: "inner1"},
+			},
+		},
+		ExpectXML: `<group xmlns="urn:test:group-1.0" outer="true"><node0 nodeattr0="attr0"><value0>inner0</value0></node0><node1 nodeattr1="attr1"><value1>inner1</value1></node1></group>`,
+	},
+
+	{
+		Value: &GroupOuterPointer{
+			Attr: "true",
+			Children: GroupInnerPointer{
+				GroupNode0: &GroupNode0{Attr: "attr0", Value: "inner0"},
+
+				GroupNode1: &GroupNode1{Attr: "attr1", Value: "inner1"},
+			},
+		},
+		ExpectXML: `<group xmlns="urn:test:group-1.0" outer="true"><node0 nodeattr0="attr0"><value0>inner0</value0></node0><node1 nodeattr1="attr1"><value1>inner1</value1></node1></group>`,
+	},
+
+	{
+		Value: &GroupOuterSlice{
+			Attr: "true",
+			Children: []GroupInnerSlice{
+				{GroupNode1: &GroupNode1{Attr: "attr1", Value: "inner1"}},
+				{GroupNode0: &GroupNode0{Attr: "attr0", Value: "inner0"}},
+			},
+		},
+		ExpectXML: `<group xmlns="urn:test:group-1.0" outer="true"><node1 nodeattr1="attr1"><value1>inner1</value1></node1><node0 nodeattr0="attr0"><value0>inner0</value0></node0></group>`,
+	},
+
+	{
+		Value: &GroupOuterAttr{
+			Attr: "true",
+			Group: GroupInnerAttr{
+				Attr:       "node0",
+				GroupNode0: GroupNode0{Attr: "attr0", Value: "inner0"},
+				GroupNode1: GroupNode1{Attr: "attr1", Value: "inner1"},
+			},
+		},
+		ExpectXML: `<group xmlns="urn:test:group-1.0" outer="true" inner="node0"><node0 nodeattr0="attr0"><value0>inner0</value0></node0><node1 nodeattr1="attr1"><value1>inner1</value1></node1></group>`,
 	},
 }
 
