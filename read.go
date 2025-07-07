@@ -794,6 +794,32 @@ func (d *Decoder) unmarshalPath(tinfo *typeInfo, sv reflect.Value, parents []str
 Loop:
 	for i := range tinfo.fields {
 		finfo := &tinfo.fields[i]
+		if finfo.flags&fGroup != 0 {
+			fv := finfo.value(sv, initNilPointers)
+			tinfo, err := getTypeInfo(fv.Type())
+			if err != nil {
+				return true, err
+			}
+
+			// Drill into interfaces and pointers.
+			for fv.Kind() == reflect.Interface || fv.Kind() == reflect.Pointer {
+				if fv.IsNil() {
+					return true, nil
+				}
+				fv = fv.Elem()
+			}
+			kind := fv.Kind()
+			if kind != reflect.Struct {
+				continue
+			}
+			if consumed, err = d.unmarshalPath(tinfo, fv, parents, start, depth+1); err != nil {
+				return true, err
+			}
+			if consumed {
+				return true, nil
+			}
+
+		}
 		if finfo.flags&fElement == 0 || len(finfo.parents) < len(parents) || finfo.xmlns != "" && finfo.xmlns != start.Name.Space {
 			continue
 		}
