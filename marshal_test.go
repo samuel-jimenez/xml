@@ -635,6 +635,26 @@ var (
 	NameSpacePrefixC = Attr{Name: Name{Local: "xmlns:c"}, Value: "urn:test:multi-1.0/c"}
 )
 
+type GroupNested struct {
+	XMLName struct{}     `xml:"urn:test:nested-1.0 nested"`
+	Value   GroupNested0 `xml:"el"`
+}
+
+type GroupNested0 struct {
+	Attr  string       `xml:"outer,attr,omitempty"`
+	Value GroupNested1 `xml:",group,any,omitempty"`
+}
+
+type GroupNested1 struct {
+	Attr  string       `xml:"mid,attr,omitempty"`
+	Value GroupNested2 `xml:",group,any,omitempty"`
+}
+type GroupNested2 struct {
+	Attr   string `xml:"inner,attr,omitempty"`
+	Value0 string `xml:"value0,omitempty"`
+	Value1 string `xml:"value1,omitempty"`
+}
+
 var (
 	nameAttr     = "Sarah"
 	ageAttr      = uint(12)
@@ -1893,6 +1913,33 @@ var marshalTests = []struct {
 			},
 		},
 		ExpectXML: `<group xmlns="urn:test:group-1.0" outer="true" inner="node0"><node0 nodeattr0="attr0"><value0>inner0</value0></node0><node1 nodeattr1="attr1"><value1>inner1</value1></node1></group>`,
+	},
+	{
+		Value: &GroupNested{
+			Value: GroupNested0{
+				Attr: "square",
+				Value: GroupNested1{
+					Value: GroupNested2{
+
+						Value0: "circle",
+					},
+				}},
+		},
+		ExpectXML: `<nested xmlns="urn:test:nested-1.0"><el outer="square"><value0>circle</value0></el></nested>`,
+	},
+	{
+		Value: &GroupNested{
+			Value: GroupNested0{
+				Attr: "square",
+				Value: GroupNested1{
+					Attr: "rectangle",
+					Value: GroupNested2{
+						Attr:   "triangle",
+						Value0: "circle",
+					},
+				}},
+		},
+		ExpectXML: `<nested xmlns="urn:test:nested-1.0"><el outer="square" mid="rectangle" inner="triangle"><value0>circle</value0></el></nested>`,
 	},
 }
 
