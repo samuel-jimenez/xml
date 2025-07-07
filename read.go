@@ -389,6 +389,7 @@ func (d *Decoder) unmarshal(val reflect.Value, start *StartElement, depth int) e
 		saveXMLIndex int
 		saveXMLData  []byte
 		saveAny      reflect.Value
+		saveGroup    []reflect.Value
 		sv           reflect.Value
 		tinfo        *typeInfo
 		err          error
@@ -476,40 +477,12 @@ func (d *Decoder) unmarshal(val reflect.Value, start *StartElement, depth int) e
 			}
 		}
 
-		// Assign attributes.
-		for _, a := range start.Attr {
-			handled := false
-			any := -1
-			for i := range tinfo.fields {
-				finfo := &tinfo.fields[i]
-				switch finfo.flags & fMode {
-				case fAttr:
-					strv := finfo.value(sv, initNilPointers)
-					if a.Name.Local == finfo.name && (finfo.xmlns == "" || finfo.xmlns == a.Name.Space) {
-						if err := d.unmarshalAttr(strv, a); err != nil {
-							return err
-						}
-						handled = true
-					}
-
-				case fAny | fAttr:
-					if any == -1 {
-						any = i
-					}
-				}
-			}
-			if !handled && any >= 0 {
-				finfo := &tinfo.fields[any]
-				strv := finfo.value(sv, initNilPointers)
-				if err := d.unmarshalAttr(strv, a); err != nil {
-					return err
-				}
-			}
-		}
-
 		// Determine whether we need to save character data or comments.
+		attrAny := -1
+
 		for i := range tinfo.fields {
 			finfo := &tinfo.fields[i]
+
 			switch finfo.flags & fMode {
 			case fCDATA, fCharData:
 				if !saveData.IsValid() {
@@ -525,7 +498,10 @@ func (d *Decoder) unmarshal(val reflect.Value, start *StartElement, depth int) e
 				if !saveAny.IsValid() {
 					saveAny = finfo.value(sv, initNilPointers)
 				}
-
+			case fAny | fAttr:
+				if attrAny == -1 {
+					attrAny = i
+				}
 			case fInnerXML:
 				if !saveXML.IsValid() {
 					saveXML = finfo.value(sv, initNilPointers)
@@ -537,7 +513,28 @@ func (d *Decoder) unmarshal(val reflect.Value, start *StartElement, depth int) e
 					}
 				}
 			}
+			if finfo.flags&fGroup != 0 {
+				saveGroup = append(saveGroup, finfo.value(sv, initNilPointers))
+			}
 		}
+
+		// Assign attributes.
+		for _, a := range start.Attr {
+			handled := false
+			handled, err = d.unmarshalAttrPath(tinfo, sv, a)
+			if err != nil {
+				return err
+			}
+
+			if !handled && attrAny >= 0 {
+				finfo := &tinfo.fields[attrAny]
+				strv := finfo.value(sv, initNilPointers)
+				if err := d.unmarshalAttr(strv, a); err != nil {
+					return err
+				}
+			}
+		}
+
 	}
 
 	// Find end element.
@@ -562,6 +559,23 @@ Loop:
 				if err != nil {
 					return err
 				}
+
+				if !consumed {
+					for _, group := range saveGroup {
+						grouptinfo, err := getTypeInfo(group.Type())
+						if err != nil {
+							return err
+						}
+						consumed, err = d.unmarshalPath(grouptinfo, group, nil, &t, depth)
+						if err != nil {
+							return err
+						}
+						if consumed {
+							break
+						}
+					}
+				}
+
 				if !consumed && saveAny.IsValid() {
 					consumed = true
 					if err := d.unmarshal(saveAny, &t, depth+1); err != nil {
@@ -704,6 +718,49 @@ func copyValue(dst reflect.Value, src []byte) (err error) {
 	return nil
 }
 
+// unmarshalAttrPath walks down an XML structure looking for wanted
+// attributes, and calls unmarshal on them.
+func (d *Decoder) unmarshalAttrPath(tinfo *typeInfo, sv reflect.Value, attr Attr) (handled bool, err error) {
+
+	for i := range tinfo.fields {
+		finfo := &tinfo.fields[i]
+		if finfo.flags&fMode == fAttr {
+			strv := finfo.value(sv, initNilPointers)
+			if attr.Name.Local == finfo.name && (finfo.xmlns == "" || finfo.xmlns == attr.Name.Space) {
+				return true, d.unmarshalAttr(strv, attr)
+			}
+		}
+
+		if finfo.flags&fGroup != 0 {
+			fv := finfo.value(sv, initNilPointers)
+			tinfo, err := getTypeInfo(fv.Type())
+			if err != nil {
+				return true, err
+			}
+
+			// Drill into interfaces and pointers.
+			for fv.Kind() == reflect.Interface || fv.Kind() == reflect.Pointer {
+				if fv.IsNil() {
+					return true, nil
+				}
+				fv = fv.Elem()
+			}
+			kind := fv.Kind()
+			if kind != reflect.Struct {
+				continue
+			}
+			if handled, err = d.unmarshalAttrPath(tinfo, fv, attr); err != nil {
+				return true, err
+			}
+			if handled {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
+
+}
+
 // unmarshalPath walks down an XML structure looking for wanted
 // paths, and calls unmarshal on them.
 // The consumed result tells whether XML elements have been consumed
@@ -711,6 +768,29 @@ func copyValue(dst reflect.Value, src []byte) (err error) {
 // still untouched because start is uninteresting for sv's fields.
 func (d *Decoder) unmarshalPath(tinfo *typeInfo, sv reflect.Value, parents []string, start *StartElement, depth int) (consumed bool, err error) {
 	recurse := false
+
+	if sv.Kind() == reflect.Slice {
+
+		typ := sv.Type()
+		if typ.Elem().Kind() == reflect.Uint8 {
+			return false, nil
+		}
+
+		// Slice of element values.
+		// Grow slice.
+		n := sv.Len()
+		sv.Grow(1)
+		sv.SetLen(n + 1)
+
+		// Recur to read element into slice.
+		tinfo, err = getTypeInfo(sv.Index(n).Type())
+		if err != nil {
+			sv.SetLen(n)
+			return false, err
+		}
+
+		return d.unmarshalPath(tinfo, sv.Index(n), parents, start, depth+1)
+	}
 Loop:
 	for i := range tinfo.fields {
 		finfo := &tinfo.fields[i]

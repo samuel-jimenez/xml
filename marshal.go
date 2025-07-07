@@ -377,6 +377,7 @@ func (p *printer) getNamespace(prefix string) string {
 		// The "http://www.w3.org/2000/xmlns/" namespace is also predefined as "xmlns"
 		return xmlnsURL
 	}
+	// Look in ancestors
 	for i := len(p.elements) - 1; i >= 0; i-- {
 		uri := p.elements[i].prefixToNS[prefix]
 		if uri != "" {
