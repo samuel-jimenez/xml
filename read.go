@@ -521,7 +521,7 @@ func (d *Decoder) unmarshal(val reflect.Value, start *StartElement, depth int) e
 		// Assign attributes.
 		for _, a := range start.Attr {
 			handled := false
-			handled, err = d.unmarshalAttrPath(tinfo, sv, a)
+			handled, err = d.unmarshalAttrGroup(tinfo, sv, a)
 			if err != nil {
 				return err
 			}
@@ -566,7 +566,7 @@ Loop:
 						if err != nil {
 							return err
 						}
-						consumed, err = d.unmarshalPath(grouptinfo, group, nil, &t, depth)
+						consumed, err = d.unmarshalGroup(grouptinfo, group, &t, depth)
 						if err != nil {
 							return err
 						}
@@ -718,9 +718,9 @@ func copyValue(dst reflect.Value, src []byte) (err error) {
 	return nil
 }
 
-// unmarshalAttrPath walks down an XML structure looking for wanted
+// unmarshalAttrGroup walks down an XML structure looking for wanted
 // attributes, and calls unmarshal on them.
-func (d *Decoder) unmarshalAttrPath(tinfo *typeInfo, sv reflect.Value, attr Attr) (handled bool, err error) {
+func (d *Decoder) unmarshalAttrGroup(tinfo *typeInfo, sv reflect.Value, attr Attr) (handled bool, err error) {
 
 	for i := range tinfo.fields {
 		finfo := &tinfo.fields[i]
@@ -749,7 +749,7 @@ func (d *Decoder) unmarshalAttrPath(tinfo *typeInfo, sv reflect.Value, attr Attr
 			if kind != reflect.Struct {
 				continue
 			}
-			if handled, err = d.unmarshalAttrPath(tinfo, fv, attr); err != nil {
+			if handled, err = d.unmarshalAttrGroup(tinfo, fv, attr); err != nil {
 				return true, err
 			}
 			if handled {
@@ -761,13 +761,12 @@ func (d *Decoder) unmarshalAttrPath(tinfo *typeInfo, sv reflect.Value, attr Attr
 
 }
 
-// unmarshalPath walks down an XML structure looking for wanted
-// paths, and calls unmarshal on them.
+// unmarshalGroup walks down an XML structure looking for wanted
+// group fields, and calls unmarshal on them.
 // The consumed result tells whether XML elements have been consumed
 // from the Decoder until start's matching end element, or if it's
 // still untouched because start is uninteresting for sv's fields.
-func (d *Decoder) unmarshalPath(tinfo *typeInfo, sv reflect.Value, parents []string, start *StartElement, depth int) (consumed bool, err error) {
-	recurse := false
+func (d *Decoder) unmarshalGroup(tinfo *typeInfo, sv reflect.Value, start *StartElement, depth int) (consumed bool, err error) {
 
 	if sv.Kind() == reflect.Slice {
 
@@ -789,9 +788,8 @@ func (d *Decoder) unmarshalPath(tinfo *typeInfo, sv reflect.Value, parents []str
 			return false, err
 		}
 
-		return d.unmarshalPath(tinfo, sv.Index(n), parents, start, depth+1)
+		return d.unmarshalGroup(tinfo, sv.Index(n), start, depth+1)
 	}
-Loop:
 	for i := range tinfo.fields {
 		finfo := &tinfo.fields[i]
 		if finfo.flags&fGroup != 0 {
@@ -812,7 +810,7 @@ Loop:
 			if kind != reflect.Struct {
 				continue
 			}
-			if consumed, err = d.unmarshalPath(tinfo, fv, parents, start, depth+1); err != nil {
+			if consumed, err = d.unmarshalGroup(tinfo, fv, start, depth+1); err != nil {
 				return true, err
 			}
 			if consumed {
@@ -820,6 +818,28 @@ Loop:
 			}
 
 		}
+		if finfo.flags&fElement != 0 && (finfo.xmlns == "" || finfo.xmlns == start.Name.Space) && finfo.name == start.Name.Local {
+			// It's a perfect match, unmarshal the field.
+			return true, d.unmarshal(finfo.value(sv, initNilPointers), start, depth+1)
+		}
+
+	}
+	// We have no business with this element.
+	return false, nil
+
+}
+
+// unmarshalPath walks down an XML structure looking for wanted
+// paths, and calls unmarshal on them.
+// The consumed result tells whether XML elements have been consumed
+// from the Decoder until start's matching end element, or if it's
+// still untouched because start is uninteresting for sv's fields.
+func (d *Decoder) unmarshalPath(tinfo *typeInfo, sv reflect.Value, parents []string, start *StartElement, depth int) (consumed bool, err error) {
+	recurse := false
+Loop:
+	for i := range tinfo.fields {
+		finfo := &tinfo.fields[i]
+
 		if finfo.flags&fElement == 0 || len(finfo.parents) < len(parents) || finfo.xmlns != "" && finfo.xmlns != start.Name.Space {
 			continue
 		}
