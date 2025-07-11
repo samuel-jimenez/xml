@@ -1847,6 +1847,7 @@ var marshalTests = []struct {
 		}{Value: "value"},
 	},
 
+	// namespaces
 	{
 		Value: &MultiNamespaces{
 			Attr: []Attr{NameSpaceA, NameSpaceB, NameSpaceC},
@@ -1856,7 +1857,6 @@ var marshalTests = []struct {
 		},
 		ExpectXML: `<a:multi xmlns:a="urn:test:multi-1.0/a" xmlns:b="urn:test:multi-1.0/b" xmlns:c="urn:test:multi-1.0/c"><b:child><c:prop>unknown</c:prop></b:child></a:multi>`,
 	},
-
 	{
 		Value: &MultiNamespaces{
 			Attr: []Attr{NameSpacePrefixA, NameSpacePrefixB, NameSpacePrefixC},
@@ -1868,6 +1868,7 @@ var marshalTests = []struct {
 		MarshalOnly: true,
 	},
 
+	// group
 	{
 		Value: &GroupOuter{
 			Attr: "true",
@@ -1879,7 +1880,6 @@ var marshalTests = []struct {
 		},
 		ExpectXML: `<group xmlns="urn:test:group-1.0" outer="true"><node0 nodeattr0="attr0"><value0>inner0</value0></node0><node1 nodeattr1="attr1"><value1>inner1</value1></node1></group>`,
 	},
-
 	{
 		Value: &GroupOuterPointer{
 			Attr: "true",
@@ -1891,7 +1891,6 @@ var marshalTests = []struct {
 		},
 		ExpectXML: `<group xmlns="urn:test:group-1.0" outer="true"><node0 nodeattr0="attr0"><value0>inner0</value0></node0><node1 nodeattr1="attr1"><value1>inner1</value1></node1></group>`,
 	},
-
 	{
 		Value: &GroupOuterSlice{
 			Attr: "true",
@@ -1902,7 +1901,6 @@ var marshalTests = []struct {
 		},
 		ExpectXML: `<group xmlns="urn:test:group-1.0" outer="true"><node1 nodeattr1="attr1"><value1>inner1</value1></node1><node0 nodeattr0="attr0"><value0>inner0</value0></node0></group>`,
 	},
-
 	{
 		Value: &GroupOuterAttr{
 			Attr: "true",
