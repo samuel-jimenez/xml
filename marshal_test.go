@@ -6,6 +6,7 @@ package xml
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -635,6 +636,7 @@ var (
 	NameSpacePrefixC = Attr{Name: Name{Local: "xmlns:c"}, Value: "urn:test:multi-1.0/c"}
 )
 
+// GroupNested
 type GroupNested struct {
 	XMLName struct{}     `xml:"urn:test:nested-1.0 nested"`
 	Value   GroupNested0 `xml:"el"`
@@ -653,6 +655,30 @@ type GroupNested2 struct {
 	Attr   string `xml:"inner,attr,omitempty"`
 	Value0 string `xml:"value0,omitempty"`
 	Value1 string `xml:"value1,omitempty"`
+}
+
+// GroupNestedPointers
+type GroupNestedPointers struct {
+	XMLName struct{} `xml:"urn:test:nested-2.0 nested"`
+
+	GroupNestedPointerInner *GroupNestedPointerInner `xml:",group,any,omitempty"`
+}
+
+type GroupNestedPointerInner struct {
+	GroupNestedPointerOuterValue *GroupNestedPointerOuterValue `xml:"a:schemeClr,omitempty"`
+}
+
+type GroupNestedPointerOuterValue struct {
+	Val                     string                    `xml:"val,attr"`
+	GroupNestedPointerArray []GroupNestedPointerArray `xml:",group,any,omitempty"`
+}
+
+type GroupNestedPointerArray struct {
+	GroupNestedPointerValue *GroupNestedPointerValue `xml:"a:lumMod,omitempty"`
+}
+
+type GroupNestedPointerValue struct {
+	Val string `xml:"val,attr"`
 }
 
 var (
@@ -1939,6 +1965,16 @@ var marshalTests = []struct {
 		},
 		ExpectXML: `<nested xmlns="urn:test:nested-1.0"><el outer="square" mid="rectangle" inner="triangle"><value0>circle</value0></el></nested>`,
 	},
+	{
+		Value: &GroupNestedPointers{GroupNestedPointerInner: &GroupNestedPointerInner{
+			GroupNestedPointerOuterValue: &GroupNestedPointerOuterValue{Val: "accent1",
+				GroupNestedPointerArray: []GroupNestedPointerArray{{
+					GroupNestedPointerValue: &GroupNestedPointerValue{Val: "50000"},
+				}},
+			},
+		}},
+		ExpectXML: `<nested xmlns="urn:test:nested-2.0"><a:schemeClr val="accent1"><a:lumMod val="50000"></a:lumMod></a:schemeClr></nested>`,
+	},
 }
 
 func TestMarshal(t *testing.T) {
@@ -2098,7 +2134,10 @@ func TestUnmarshal(t *testing.T) {
 				return
 			}
 			if got, want := dest, test.Value; !reflect.DeepEqual(got, want) {
-				t.Errorf("unmarshal(%s):\nhave %#v\nwant %#v", test.ExpectXML, got, want)
+				// t.Errorf("unmarshal(%s):\nhave %#v\nwant %#v", test.ExpectXML, got, want)
+				got, _ := json.Marshal(got)
+				want, _ := json.Marshal(want)
+				t.Errorf("unmarshal(%s):\nhave %s\nwant %s", test.ExpectXML, got, want)
 			}
 		})
 	}
