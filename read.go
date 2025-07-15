@@ -764,13 +764,12 @@ func (d *Decoder) unmarshalAttrGroup(tinfo *typeInfo, sv reflect.Value, attr Att
 // still untouched because start is uninteresting for sv's fields.
 func (d *Decoder) unmarshalGroup(sv reflect.Value, start *StartElement, depth int) (consumed bool, err error) {
 
-	// Load value from interface, but only if the result will be
-	// usefully addressable.
-	if sv.Kind() == reflect.Interface && !sv.IsNil() {
-		e := sv.Elem()
-		if e.Kind() == reflect.Pointer && !e.IsNil() {
-			sv = e
+	// Drill into interfaces and pointers.
+	for sv.Kind() == reflect.Interface || sv.Kind() == reflect.Pointer {
+		if sv.IsNil() {
+			sv.Set(reflect.New(sv.Type().Elem()))
 		}
+		sv = sv.Elem()
 	}
 
 	if sv.Kind() == reflect.Pointer {
@@ -793,7 +792,11 @@ func (d *Decoder) unmarshalGroup(sv reflect.Value, start *StartElement, depth in
 		sv.SetLen(n + 1)
 
 		// Recur to read element into slice.
-		return d.unmarshalGroup(sv.Index(n), start, depth+1)
+		consumed, err = d.unmarshalGroup(sv.Index(n), start, depth+1)
+		if err != nil || !consumed {
+			sv.SetLen(n)
+		}
+		return consumed, err
 	}
 
 	typ := sv.Type()
@@ -816,17 +819,6 @@ func (d *Decoder) unmarshalGroup(sv reflect.Value, start *StartElement, depth in
 				return true, err
 			}
 
-			// Drill into interfaces and pointers.
-			for fv.Kind() == reflect.Interface || fv.Kind() == reflect.Pointer {
-				if fv.IsNil() {
-					fv.Set(reflect.New(fv.Type().Elem()))
-				}
-				fv = fv.Elem()
-			}
-			kind := fv.Kind()
-			if kind != reflect.Struct {
-				continue
-			}
 			if consumed, err = d.unmarshalGroup(fv, start, depth+1); err != nil {
 				return true, err
 			}
