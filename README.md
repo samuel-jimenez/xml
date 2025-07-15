@@ -1,6 +1,6 @@
 # `encoding/xml` with namespace prefixes
 
-[![build status](https://img.shields.io/github/actions/workflow/status/samuel-jimenez/xml/go.yaml?branch=main)](https://github.com/samuel-jimenez/xml/actions)
+[![build status](https://img.shields.io/github/actions/workflow/status/samuel-jimenez/xml/go.yaml?branch=master)](https://github.com/samuel-jimenez/xml/actions)
 [![pkg.go.dev](https://img.shields.io/badge/docs-pkg.go.dev-blue.svg)](https://pkg.go.dev/github.com/samuel-jimenez/xml)
 
 This package exists due to [underlying Golang implementation issues with XML namespaces](https://github.com/golang/go/issues/9519) and the [unwillingness to fix them](https://github.com/golang/go/issues/13400).
